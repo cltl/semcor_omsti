@@ -164,7 +164,7 @@ def load_into_classes(competition, sensekey2offset, debug=0):
     :rtype: tuple
     :return: (sentid2sent_obj, instance_id2token_obj)
     """
-    if competition in {'SemCor', 'SemCor+OMSTI'}:
+    if competition in {'SemCor', 'OMSTI', 'SemCor+OMSTI'}:
         paths = get_training_paths(competition)
     else:
         paths = get_comp_paths(competition)

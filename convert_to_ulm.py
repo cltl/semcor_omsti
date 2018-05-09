@@ -27,7 +27,7 @@ sensekey2offset = load_mapping_sensekey2offset(path_to_wn_index_sense,
 
 sensekey2instance_ids, \
 synset2instance_ids, \
-instance_id2instance_obj = utils.load_into_classes(args.corpora, sensekey2offset)
+instance_id2instance_obj = utils.load_into_classes(args.corpora, sensekey2offset, debug=1)
 
 for basename, info in [('instances.bin', instance_id2instance_obj),
                         ('sensekey_index.bin', sensekey2instance_ids),
