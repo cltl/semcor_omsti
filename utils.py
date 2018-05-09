@@ -2,8 +2,8 @@ import os
 from collections import defaultdict
 from nltk.corpus import wordnet as wn
 from lxml import etree
-import pickle
 from my_classes import Sentence, Token
+from datetime import datetime
 
 def get_comp_paths(competition):
     """
@@ -30,6 +30,19 @@ def get_comp_paths(competition):
                        '{competition}.data.xml'.format_map(locals()))
     assert os.path.exists(xml)
 
+    # add fake root
+    fake_root_path = xml + '.fake_root'
+    if not os.path.exists(fake_root_path):
+        with open(fake_root_path, 'w') as outfile:
+            with open(xml) as infile:
+                for counter, line in enumerate(infile):
+                    if counter == 1:
+                        outfile.write('<root>\n')
+                    outfile.write(line)
+            outfile.write('</root>\n')
+
+    xml = fake_root_path
+
     key = os.path.join('resources',
                        'WSD_Unified_Evaluation_Datasets',
                        competition,
@@ -37,7 +50,9 @@ def get_comp_paths(competition):
     assert os.path.exists(key)
 
     return {'xml': xml,
-            'key': key}
+            'key': key,
+            'source' : {competition}
+            }
 
 
 def get_training_paths(corpora):
@@ -52,9 +67,20 @@ def get_training_paths(corpora):
     :return: {'xml' : path to xml, 'key' : path to answers}
     """
     supported = {'SemCor',
+                 'OMSTI',
                  'SemCor+OMSTI'}
     assert corpora in supported, '{corpora} not in supported corpora ones: {supported}'.format_map(locals())
 
+    # set sources
+    if corpora == 'SemCor':
+        source={'semcor'}
+    elif corpora == 'OMSTI':
+        source = {'mun'}
+    elif corpora == 'SemCor+OMSTI':
+        source = {'semcor', 'mun'}
+
+    if corpora == 'OMSTI':
+        corpora = 'SemCor+OMSTI'
 
     basename = '{corpora}.data.xml'.format_map(locals())
     xml = os.path.join('resources',
@@ -62,6 +88,19 @@ def get_training_paths(corpora):
                        corpora,
                        basename.lower())
     assert os.path.exists(xml)
+
+    # add fake root
+    fake_root_path = xml + '.fake_root'
+    if not os.path.exists(fake_root_path):
+        with open(fake_root_path, 'w') as outfile:
+            with open(xml) as infile:
+                for counter, line in enumerate(infile):
+                    if counter == 1:
+                        outfile.write('<root>\n')
+                    outfile.write(line)
+            outfile.write('</root>\n')
+
+    xml = fake_root_path
 
     basename = '{corpora}.gold.key.txt'.format_map(locals())
     key = os.path.join('resources',
@@ -71,7 +110,8 @@ def get_training_paths(corpora):
     assert os.path.exists(key)
 
     return {'xml': xml,
-            'key': key}
+            'key': key,
+            'source': source}
 
 
 def get_sensekey2synset():
@@ -112,21 +152,22 @@ def represented_sensekeys(path_to_key_file):
     return sensekey2ids, id2sensekeys
 
 
-def load_into_classes(competition, sensekey2offset):
+def load_into_classes(competition, sensekey2offset, debug=0):
     """
     load competition info into classes
     
     :param str competition: senseval2 | senseval3 | semeval2007 | semeval2013 | semeval2015
+    :param dict sensekey2offset: mapping wordnet sensekey -> synset identifier
+    :param int verbose: verbosity of debugging info
     
     
     :rtype: tuple
     :return: (sentid2sent_obj, instance_id2token_obj)
     """
-    if competition in {'SemCor'}:
+    if competition in {'SemCor', 'SemCor+OMSTI'}:
         paths = get_training_paths(competition)
     else:
         paths = get_comp_paths(competition)
-
 
     sensekey2ids, id2sensekeys = represented_sensekeys(paths['key'])
 
@@ -134,52 +175,60 @@ def load_into_classes(competition, sensekey2offset):
     synset2instance_ids = defaultdict(set)
     instance_id2instance_obj = dict()
 
+    if debug >= 1:
+        print(datetime.now(), 'started loading', paths['xml'])
+
     doc = etree.parse(paths['xml'])
+
+    if debug >= 1:
+        print(datetime.now(), 'finished loading', paths['xml'])
+
     all_pos = set()
 
-    for sent_el in doc.iterfind('text/sentence'):
-        sent_id = sent_el.get('id')
+    for corpus_el in doc.iterfind('corpus'):
+        if corpus_el.get('source') in paths['source']:
+            for sent_el in corpus_el.iterfind('text/sentence'):
+                sent_id = sent_el.get('id')
 
-        tokens = []
+                tokens = []
 
-        for token_el in sent_el.getchildren():
+                for token_el in sent_el.getchildren():
 
-            token = token_el.text
-            lemma = token_el.get('lemma')
-            pos = token_el.get('pos')
-            id_ = None
-            sensekeys = set()
-            synsets = set()
+                    token = token_el.text
+                    lemma = token_el.get('lemma')
+                    pos = token_el.get('pos')
+                    id_ = None
+                    sensekeys = set()
+                    synsets = set()
 
-            if token_el.tag == 'instance':
-                id_ = token_el.get('id')
-                sensekeys = id2sensekeys[id_]
-                all_pos.add(pos)
+                    if token_el.tag == 'instance':
+                        id_ = token_el.get('id')
+                        sensekeys = id2sensekeys[id_]
+                        all_pos.add(pos)
 
-                synsets = set()
-                for sensekey in sensekeys:
+                        synsets = set()
+                        for sensekey in sensekeys:
 
-                    sensekey2instance_ids[sensekey].add(sent_id)
+                            sensekey2instance_ids[sensekey].add(sent_id)
 
-                    if sensekey in sensekey2offset:
-                        synset_id = sensekey2offset[sensekey]
-                        synsets.add(synset_id)
-                        synset2instance_ids[synset_id].add(sent_id)
-                    else:
-                        print('no synset found for: %s' % synset_id)
+                            if sensekey in sensekey2offset:
+                                synset_id = sensekey2offset[sensekey]
+                                synsets.add(synset_id)
+                                synset2instance_ids[synset_id].add(sent_id)
+                            else:
+                                print('no synset found for: %s' % synset_id)
 
-            token_obj = Token(token_id=id_,
-                              text=token,
-                              lemma=lemma,
-                              universal_pos=pos,
-                              lexkeys=sensekeys,
-                              synsets=synsets)
+                    token_obj = Token(token_id=id_,
+                                      text=token,
+                                      lemma=lemma,
+                                      universal_pos=pos,
+                                      lexkeys=sensekeys,
+                                      synsets=synsets)
 
-            tokens.append(token_obj)
+                    tokens.append(token_obj)
 
-        sent_obj = Sentence(sent_id, tokens)
-        instance_id2instance_obj[sent_id] = sent_obj
-
+                sent_obj = Sentence(sent_id, tokens)
+                instance_id2instance_obj[sent_id] = sent_obj
 
     return sensekey2instance_ids, synset2instance_ids, instance_id2instance_obj
 
