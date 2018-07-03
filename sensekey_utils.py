@@ -19,6 +19,7 @@ def load_mapping_sensekey2offset(path_to_index_sense, wn_version):
 
             lemma, pos = get_lemma_pos_of_sensekey(sensekey)
 
+            
             assert pos != 'u'
             assert len(synset_offset) == 8
 
@@ -55,7 +56,7 @@ def get_lemma_pos_of_sensekey(sense_key):
     elif int_pos == '4':
         this_pos = 'r'
     elif int_pos == '5':
-        this_pos = 's'
+        this_pos = 'a'
     else:
         this_pos = 'u'
 

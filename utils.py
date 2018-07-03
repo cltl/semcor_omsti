@@ -252,7 +252,7 @@ def synset2identifier(synset, wn_version):
     offset_8_char = offset.zfill(8)
 
     pos = synset.pos()
-    if pos in {'j', 's']:
+    if pos in {'j', 's'}:
         pos = 'a'
 
     identifier = 'eng-{wn_version}-{offset_8_char}-{pos}'.format_map(locals())
