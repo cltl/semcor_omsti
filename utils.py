@@ -162,7 +162,10 @@ def load_into_classes(competition, sensekey2offset, debug=0):
     
     
     :rtype: tuple
-    :return: (sentid2sent_obj, instance_id2token_obj)
+    :return: (sensekey -> set of ids that contain them,
+              synset -> set of ids that contain them,
+              token id -> id that contains them
+              instance_id -< sent object)
     """
     if competition in {'SemCor', 'OMSTI', 'SemCor+OMSTI'}:
         paths = get_training_paths(competition)
@@ -174,6 +177,7 @@ def load_into_classes(competition, sensekey2offset, debug=0):
     sensekey2instance_ids = defaultdict(set)
     synset2instance_ids = defaultdict(set)
     instance_id2instance_obj = dict()
+    tokenid2instance_obj = dict()
 
     if debug >= 1:
         print(datetime.now(), 'started loading', paths['xml'])
@@ -248,7 +252,7 @@ def synset2identifier(synset, wn_version):
     offset_8_char = offset.zfill(8)
 
     pos = synset.pos()
-    if pos == 'j':
+    if pos in {'j', 's']:
         pos = 'a'
 
     identifier = 'eng-{wn_version}-{offset_8_char}-{pos}'.format_map(locals())

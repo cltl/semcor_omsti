@@ -16,7 +16,6 @@ args = parser.parse_args()
 # paths
 if os.path.exists(args.output_folder):
     shutil.rmtree(args.output_folder)
-
 os.mkdir(args.output_folder)
 
 # wordnet
@@ -40,6 +39,7 @@ for basename, info in [('instances.bin', instance_id2instance_obj),
 
 print('Total number of instances: %d' % len(instance_id2instance_obj))
 
+
 stats = dict()
 for label, d in [('sensekey', sensekey2instance_ids),
                  ('synset', synset2instance_ids)]:
@@ -48,6 +48,20 @@ for label, d in [('sensekey', sensekey2instance_ids),
 
     avg = round(sum(counts) / len(counts), 2)
     stats[label] = avg
+
+    output_folder = '%s/%s' % (args.output_folder, label)
+    os.mkdir(output_folder)
+
+    for meaning, instance_ids in d.items():
+        meanings_instances = {instance_id2instance_obj[instance_id]
+                             for instance_id in instance_ids}
+        local_dict = {meaning: meanings_instances}
+
+        output_path = '%s/%s.p' % (output_folder, meaning)
+
+        with open(output_path, 'wb') as outfile:
+            pickle.dump(local_dict, outfile)
+
 
 print('stats for sensekeys: #%s avg of %s' % (len(sensekey2instance_ids),
                                               stats['sensekey']))
